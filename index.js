@@ -1,27 +1,22 @@
 import axios from 'axios';
 import cron from 'node-cron';
-import dotenv from 'dotenv';
 
-dotenv.config();
-
+const SUPABASE_EDGE = 'https://ujgfdlilxorrgojsxjqz.supabase.co/functions/v1/vehicles-upsert';
 const TOKEN = 'Pn7wetx.Ykgu5af';
-const OPENAI_KEY = process.env.OPENAI_API_KEY || 'sk-fake';
 
-async function testUpsert() {
-  try {
-    await axios.post('https://ujgfdlilxorrgojsxjqz.supabase.co/functions/v1/vehicles-upsert', {
-      OEM: 'Freightliner',
-      Model: 'eCascadia',
-      YearAvailable: '2026',
-      Powertrain: 'BEV',
-      VehicleType: 'Tractor',
-      Range_miles: 230,
-      Battery_kWh: 438
-    }, {
-      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }
-    });
-  } catch(e) {}
+async function testInsert() {
+  // Hardcoded test - no API calls
+  axios.post(SUPABASE_EDGE, {
+    OEM: 'Freightliner',
+    Model: 'eCascadia Test',
+    YearAvailable: '2026',
+    Powertrain: 'BEV',
+    VehicleType: 'Tractor',
+    Range_miles: 230
+  }, {
+    headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }
+  }).catch(() => {});  // Silent fail
 }
 
-cron.schedule('0 3 * * *', testUpsert);
-testUpsert();
+cron.schedule('0 3 * * *', testInsert);
+testInsert();
