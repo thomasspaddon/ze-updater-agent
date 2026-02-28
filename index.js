@@ -4,41 +4,50 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
-const FLEETTRANSITION_URL = process.env.FLEETTRANSITION_URL || 'https://fleettransition.com';
-const TOKEN = process.env.FLEETTRANSITION_TOKEN;
+const SUPABASE_URL = 'https://ujgfdlilxorrgojsxjqz.supabase.co';
+const TOKEN = 'Pn7wetx.Ykgu5af';
+
+async function getSources() {
+  const { data } = await axios.get(`${SUPABASE_URL}/functions/v1/vehicles-sources`, {
+    headers: { Authorization: `Bearer ${TOKEN}` }
+  });
+  return data;
+}
+
+async function upsertVehicle(vehicle) {
+  await axios.post(`${SUPABASE_URL}/functions/v1/vehicles-upsert`, vehicle, {
+    headers: { 
+      Authorization: `Bearer ${TOKEN}`,
+      'Content-Type': 'application/json'
+    }
+  });
+}
 
 async function runCycle() {
-  console.log('Starting quiet cycle...'); // Only 1 log
+  console.log('Starting Edge Function cycle...');
   
-  try {
-    const { data: sources } = await axios.get(`${FLEETTRANSITION_URL}/api/vehicles/sources`, {
-      headers: { Authorization: `Bearer ${TOKEN}` },
-      timeout: 30000
+  const sources = await getSources();
+  console.log(`Found ${sources.length} sources`);
+  
+  for (const source of sources.slice(0, 1)) {
+    console.log(`Scraping ${source.oem}...`);
+    
+    const { data } = await axios.post('https://api.perplexity.ai/chat/completions', {
+      model: 'perplexity/sonnet-4-mini',
+      messages: [{ role: 'user', content: `Extract ${source.oem} EV specs from ${source.base_url}. Return JSON array: OEM, Model, Range_miles, Battery_kWh, VehicleType.` }],
+      max_tokens: 2000
     });
     
-    for (const source of sources.slice(0, 1)) {  // 1 OEM first
-      const { data } = await axios.post('https://api.perplexity.ai/chat/completions', {
-        model: 'perplexity/sonnet-4-mini',
-        messages: [{ role: 'user', content: `Extract ${source.oem} vehicles from ${source.base_url}. JSON only.` }],
-        max_tokens: 2000,
-        temperature: 0.1
-      }, { timeout: 45000 });
-      
-      const vehicles = JSON.parse(data.choices[0].message.content);
-      for (const vehicle of vehicles) {
-        await axios.post(`${FLEETTRANSITION_URL}/api/vehicles/upsert`, vehicle, {
-          headers: { Authorization: `Bearer ${TOKEN}` },
-          timeout: 10000
-        });
-      }
+    const vehicles = JSON.parse(data.choices[0].message.content);
+    
+    for (const vehicle of vehicles.slice(0, 2)) {
+      await upsertVehicle(vehicle);
+      console.log(`✅ Upserted ${vehicle.Model}`);
     }
-    console.log('✅ Cycle complete');
-  } catch (error) {
-    console.error('Error:', error.message);
   }
+  console.log('✅ Complete');
 }
 
 cron.schedule('0 3 * * *', runCycle);
-console.log('Agent ready');
-runCycle();  // Test
+console.log('Edge agent ready');
+runCycle();
