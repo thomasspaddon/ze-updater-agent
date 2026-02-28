@@ -1,0 +1,6 @@
+[phases.build]
+nixPkgs = ['nodejs-20']
+cmds = ['npm ci --omit=dev --no-audit --no-fund']
+
+[phases.setup]
+nixPkgs = ['nodejs-20']
