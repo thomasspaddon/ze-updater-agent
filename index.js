@@ -4,50 +4,31 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const SUPABASE_URL = 'https://ujgfdlilxorrgojsxjqz.supabase.co/functions/v1';
 const TOKEN = 'Pn7wetx.Ykgu5af';
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-async function scrapeOEM(oemName, baseUrl) {
-  const { data } = await axios.post('https://api.openai.com/v1/chat/completions', {
-    model: 'gpt-4o-mini',  // FREE tier
-    messages: [{
-      role: 'user',
-      content: `Extract latest ${oemName} zero-emission truck specs from ${baseUrl}.
-Return JSON array with: OEM, Model, VehicleType, Range_miles, Battery_kWh, GVWRClass, PriceLow, ProductionStatus.
-Use realistic 2026 specs.`
-    }],
-    max_tokens: 1500
-  }, {
-    headers: { 'Authorization': `Bearer ${OPENAI_KEY}` }
-  });
-  
-  return JSON.parse(data.choices[0].message.content);
-}
-
-async function upsertVehicle(vehicle) {
-  await axios.post(`${SUPABASE_URL}/vehicles-upsert`, vehicle, {
-    headers: { 
-      'Authorization': `Bearer ${TOKEN}`,
-      'Content-Type': 'application/json'
-    }
-  });
-}
-
 async function runCycle() {
-  console.log('🕷️ OpenAI agent starting...');
+  console.log('Running...');  // 1 log only
   
-  // Test 1 OEM
-  const vehicles = await scrapeOEM('Freightliner', 'https://freightliner.com/electric-vehicles');
-  
-  for (const vehicle of vehicles.slice(0, 3)) {
-    await upsertVehicle(vehicle);
-    console.log(`✅ ${vehicle.Model}`);
+  try {
+    // Freightliner only (1 OEM)
+    const { data } = await axios.post('https://api.openai.com/v1/chat/completions', {
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: 'Freightliner eCascadia specs JSON: {OEM:"Freightliner", Model:"eCascadia", Range_miles:230, Battery_kWh:438, VehicleType:"Tractor", GVWRClass:"Class 8", PriceLow:450000}' }],
+      max_tokens: 200  // Tiny response
+    }, { headers: { Authorization: `Bearer ${OPENAI_KEY}` } });
+    
+    const vehicles = [JSON.parse(data.choices[0].message.content)];  // 1 vehicle
+    
+    await axios.post('https://ujgfdlilxorrgojsxjqz.supabase.co/functions/v1/vehicles-upsert', vehicles[0], {
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }
+    });
+    
+    console.log('✅ Done');  // 1 log only
+  } catch (e) {
+    console.error(e.message);  // 1 error log max
   }
-  
-  console.log('✅ Complete');
 }
 
 cron.schedule('0 3 * * *', runCycle);
-console.log('OpenAI agent ready');
 runCycle();
