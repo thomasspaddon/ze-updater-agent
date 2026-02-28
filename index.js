@@ -6,18 +6,18 @@ const TOKEN = 'Pn7wetx.Ykgu5af';
 
 async function testInsert() {
   // Hardcoded test - no API calls
-  axios.post(SUPABASE_EDGE, {
+ axios.post(SUPABASE_EDGE, {
   OEM: 'Freightliner',
-  Model: 'eCascadia AgentTest',
+  Model: 'eCascadia FINAL',
   YearAvailable: '2026',
   Powertrain: 'BEV',
-  VehicleType: 'Tractor',  // ← This was missing!
+  VehicleType: 'Tractor',
   Range_miles: 230,
-  Battery_kWh: 438,
-  GVWRClass: 'Class 8'
+  Battery_kWh: 438   // ← ADD THIS
 }, {
   headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }
-});
+}).then(() => console.log('✅ SUCCESS'));
+
 
 cron.schedule('0 3 * * *', testInsert);
 testInsert();
